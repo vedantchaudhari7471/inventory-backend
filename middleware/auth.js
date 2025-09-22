@@ -1,30 +1,26 @@
 import jwt from 'jsonwebtoken';
-import dotenv from 'dotenv';
-dotenv.config();
 
-const SECRET = process.env.JWT_SECRET || 'dev-secret';
+export const authenticate = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  if (!authHeader) return res.status(401).json({ error: 'Missing token' });
 
-export function generateToken(payload) {
-  return jwt.sign(payload, SECRET, { expiresIn: '8h' });
-}
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ error: 'Invalid token' });
 
-export function authenticate(req, res, next) {
-  const auth = req.headers.authorization;
-  if (!auth) return res.status(401).json({ error: 'Missing Authorization header' });
-  const token = auth.split(' ')[1];
   try {
-    const data = jwt.verify(token, SECRET);
-    req.user = data;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
     next();
-  } catch (err) {
-    return res.status(401).json({ error: 'Invalid or expired token' });
+  } catch {
+    res.status(401).json({ error: 'Token invalid or expired' });
   }
-}
+};
 
-export function requireRole(role) {
-  return (req, res, next) => {
-    if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
-    if (req.user.role !== role) return res.status(403).json({ error: 'Forbidden' });
-    next();
-  };
-}
+export const requireRole = (role) => (req, res, next) => {
+  if (req.user.role !== role) return res.status(403).json({ error: 'Forbidden' });
+  next();
+};
+
+export const generateToken = (payload) => {
+  return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '7d' });
+};
